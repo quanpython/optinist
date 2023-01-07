@@ -1,15 +1,17 @@
 import os
+import json
 import pandas as pd
+import numpy as np
 from glob import glob
 from typing import Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 from optinist.api.dir_path import DIRPATH
 
 from optinist.api.utils.json_writer import JsonWriter, save_tiff2json
 from optinist.api.utils.filepath_creater import create_directory, join_filepath
 from optinist.routers.const import ACCEPT_TIFF_EXT
 from optinist.routers.fileIO.file_reader import JsonReader, Reader
-from optinist.routers.model import JsonTimeSeriesData
+from optinist.routers.model import JsonTimeSeriesData, RoiDataUpdate
 
 router = APIRouter()
 
@@ -139,6 +141,35 @@ async def get_image(
         json_filepath = filepath
 
     return JsonReader.read_as_output(json_filepath)
+
+from optinist.api.utils.json_writer import JsonWriter
+
+@router.post("/outputs/image/{filepath:path}/update")
+async def update_roi(
+        filepath: str,
+        roi_data: RoiDataUpdate
+    ):
+    filename, ext = os.path.splitext(os.path.basename(filepath))
+    
+    if ext != '.json':
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
+    new_roi_data_arr = np.array(roi_data.data)
+
+    try:
+        data = JsonReader.read(filepath)
+    except OSError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if np.shape(new_roi_data_arr) != np.shape(np.array(data['data'])):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    data['data'] = roi_data.data
+
+    with open(filepath, 'w') as f:
+        json.dump(data, f)
+
+    return data
 
 
 @router.get("/outputs/csv/{filepath:path}")
