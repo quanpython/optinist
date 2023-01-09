@@ -3,6 +3,7 @@ from typing import Dict, List
 
 from pydantic import BaseModel
 
+
 @dataclass
 class Arg:
     name: str
@@ -37,6 +38,9 @@ class FILETYPE:
 
 class DeleteItem(BaseModel):
     uidList: list
+
+class RoiDataUpdate(BaseModel):
+    data: List
 
 @dataclass
 class HDF5Node:
